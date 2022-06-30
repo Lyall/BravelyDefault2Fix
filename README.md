@@ -19,7 +19,7 @@ This is a DLL hook that adds ultrawide/custom resolution support to Bravely Defa
 - The game is designed around 16:9. You may see glitches/pop-in outside the 16:9 frame, especially in cutscenes.
 
 ## Screenshots
-
+![ezgif-3-86f9b2c108](https://user-images.githubusercontent.com/695941/176579058-d008aba0-3aad-4729-80d0-f8346fb4a5a4.gif)
 
 ## Credits
 killer-m on the WSGF discord for the pillarbox removal bytes. <br />
