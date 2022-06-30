@@ -1,6 +1,5 @@
 #include "stdafx.h"
 #include "external/inih/INIReader.h"
-#include <string>
 #include "helper.hpp"
 
 bool Proxy_Attach();
@@ -39,7 +38,6 @@ void __declspec(naked) FOVFix_CC()
 {
     __asm
     {
-        movss xmm0, [rbx + 0x00000218]
         fld dword ptr[rbx + 0x00000218]
         fmul [FOVPiDiv]
         fptan
