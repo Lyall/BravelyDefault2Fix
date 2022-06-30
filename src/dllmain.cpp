@@ -29,30 +29,28 @@ float fPi = 3.14159265358979323846f;
 float fDefaultHUDWidth = 1920;
 float fCustomAspect;
 
-DWORD64 FullscreenBugReturnJMP;
-float FullscreenBugAddr = 3440;
-void __declspec(naked) FullscreenBug_CC()
-{
-    __asm
-    {
-        movss xmm1, [FullscreenBugAddr]
-        xorps xmm6, xmm6
-        maxss xmm1, xmm6
-        cvttss2si rax, xmm1
-        mov[rbp + 0x40], rax
-        jmp[FullscreenBugReturnJMP]
-    }
-}
-
 // FOV Hook
 DWORD64 FOVFixReturnJMP;
-float FOVFixValue;
+float FOVPiDiv;
+float FOVNewAspect;
+float FOVDivPi;
+float FOVFinalValue;
 void __declspec(naked) FOVFix_CC()
 {
     __asm
     {
         movss xmm0, [rbx + 0x00000218]
-        movss xmm0, [FOVFixValue]
+        fld dword ptr[rbx + 0x00000218]
+        fmul [FOVPiDiv]
+        fptan
+        fxch st(1)
+        fdiv [fNativeAspect]
+        fmul [FOVNewAspect]
+        fxch st(1)
+        fpatan
+        fmul [FOVDivPi]
+        fstp [FOVFinalValue]
+        movss xmm0, [FOVFinalValue]
         addss xmm0, [fFOVAdjust]
         movss [rdi + 0x18], xmm0
         mov eax, [rbx + 0x00000228]
@@ -93,14 +91,9 @@ void ReadConfig()
 {
     INIReader config("BravelyDefault2Fix.ini");
 
-    //bFPSCap = config.GetBoolean("FPS Uncap", "Enabled", true);
-    //bMovieFix = config.GetBoolean("Fix Movies", "Enabled", true);
-    //bMovieFixCropped = config.GetBoolean("Fix Movies", "Cropped", true);
     bResFix = config.GetBoolean("Fix Resolution", "Enabled", true);
     bAspectFix = config.GetBoolean("Fix Aspect Ratio", "Enabled", true);
     bHUDFix = config.GetBoolean("Fix HUD", "Enabled", true);
-    //iShadowQuality = config.GetInteger("Shadow Quality", "Value", -1);
-    //bShadowQuality = config.GetBoolean("Shadow Quality", "Enabled", true);
     bFullscreenBug = config.GetBoolean("Fix Fullscreen Bug", "Enabled", true);
     bFOVFix = config.GetBoolean("Fix FOV", "Enabled", true);
     fFOVAdjust = config.GetFloat("Fix FOV", "AdditionalFOV", 0);
@@ -169,17 +162,8 @@ void FOVFix()
     {
         // Shoutout to WSGF's FOV calculations. I'm not good with maths.
         // https://www.wsgf.org/article/common-hex-values
-        // Arctan(Tan(30 * PI / 360) / (nativeAspect) * (newAspect)) * 360 / PI
-        
-        // Maybe do it in assembly? Like this?
-        // fld [oldfov]
-        // fmul [pi/360]
-        // fptan
-        // fdiv [nativeAspect * newAspect]
-        // fmul [360/pi]
-        // fpatan
-        // fstp [finalfov]
-        // Or not. Let's just assume FOV stays at 30
+        // Arctan(Tan(originalFOV * PI / 360) / (nativeAspect) * (newAspect)) * 360 / PI
+        // Writing this in assembly sucked. But it allows for a dynamic FOV.
 
         // Address of signature = Bravely_Default_II - Win64 - Shipping.exe + 0x01BD9448
         uint8_t* FOVFixScanResult = Memory::PatternScan(baseModule, "F3 0F 10 ?? ?? ?? ?? ?? F3 0F 11 ?? ?? 8B ?? ?? ?? ?? ?? 89 ?? ?? 0F B6 ?? ?? ?? ?? ??");
@@ -187,16 +171,18 @@ void FOVFix()
         {
             int FOVFixHookLength = 19;
             DWORD64 FOVFixAddress = (uintptr_t)FOVFixScanResult;
-            FOVFixValue = (atan(tan(30 * fPi / 360) / (fNativeAspect) * (fDesktopAspect)) * 360 / fPi);
+            FOVFixReturnJMP = FOVFixAddress + FOVFixHookLength;
+            FOVPiDiv = fPi / 360;
+            FOVNewAspect = fDesktopAspect;
+            FOVDivPi = 360 / fPi;
             if (iCustomResX > 0 && iCustomResY > 0)
             {
-                FOVFixValue = (atan(tan(30 * fPi / 360) / (fNativeAspect) * (fCustomAspect)) * 360 / fPi);
+                FOVNewAspect = fCustomAspect;
             }
-            FOVFixReturnJMP = FOVFixAddress + FOVFixHookLength;
             Memory::DetourFunction64((void*)FOVFixAddress, FOVFix_CC, FOVFixHookLength);        
 
             #if _DEBUG
-            std::cout << "FOV adjusted to " << FOVFixValue + fFOVAdjust << std::endl;
+            std::cout << "FOV adjusted to vert+, and added " << fFOVAdjust << std::endl;
             #endif
         }
     }
