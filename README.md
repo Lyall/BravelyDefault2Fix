@@ -1,4 +1,4 @@
-# BravelyDefault2Fix
+# Bravely Default 2 Fix
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W01UAI9)</br>
 [![Github All Releases](https://img.shields.io/github/downloads/Lyall/BravelyDefault2Fix/total.svg)](https://github.com/Lyall/BravelyDefault2Fix/releases)
 
