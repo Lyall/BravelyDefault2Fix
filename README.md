@@ -11,7 +11,7 @@ This is a DLL hook that adds ultrawide/custom resolution support to Bravely Defa
 
 ## Installation
 - Downloaded the [latest release](https://github.com/Lyall/BravelyDefault2Fix/releases) of BravelyDefault2Fix.
-- Unzip in to the game directory (e.g **steamapps\common\Bravely Default II**).
+- Unzip in to the game directory (e.g **steamapps\common\BRAVELY DEFAULT II**).
 - Edit **BravelyDefault2Fix.ini** to enable/adjust features.
 
 ## Known Issues
@@ -22,7 +22,7 @@ This is a DLL hook that adds ultrawide/custom resolution support to Bravely Defa
 ![ezgif-3-86f9b2c108](https://user-images.githubusercontent.com/695941/176579058-d008aba0-3aad-4729-80d0-f8346fb4a5a4.gif)
 
 ## Credits
-killer-m on the WSGF discord for the pillarbox removal bytes. <br />
+[killer-m]() on the WSGF discord for the pillarbox removal bytes. <br />
 [WSGF](https://www.wsgf.org/article/common-hex-values) for info on FOV calculation.<br />
 [RERevHook](https://www.nexusmods.com/residentevilrevelations/mods/26) for the DLL proxy code.<br />
 [inih](https://github.com/jtilly/inih) for ini reading.
