@@ -18,6 +18,8 @@ bool bFOVFix;
 float fFOVAdjust;
 int iCustomResX;
 int iCustomResY;
+bool bResScale;
+float fResScale;
 
 // Variables
 float fDesktopRight;
@@ -85,6 +87,21 @@ void __declspec(naked) HUDOffset_CC()
     }
 }
 
+// r.ScreenPercentage Hook
+DWORD64 ResScaleReturnJMP;
+float fResScaleValue = 0.009999999776f;
+void __declspec(naked) ResScale_CC()
+{
+    __asm
+    {
+        setne bl
+        movss xmm1, [fResScale]
+        xorps xmm0, xmm0
+        mulss xmm1, [fResScaleValue]
+        jmp[ResScaleReturnJMP]
+    }
+}
+
 void ReadConfig()
 {
     INIReader config("BravelyDefault2Fix.ini");
@@ -97,6 +114,8 @@ void ReadConfig()
     fFOVAdjust = config.GetFloat("Fix FOV", "AdditionalFOV", 0);
     iCustomResX = config.GetInteger("Custom Resolution", "Width", -1);
     iCustomResY = config.GetInteger("Custom Resolution", "Height", -1);
+    bResScale = config.GetBoolean("r.ScreenPercentage", "Enabled", true);
+    fResScale = config.GetFloat("r.ScreenPercentage", "Value", 0);
 
     RECT desktop;
     GetWindowRect(GetDesktopWindow(), &desktop);
@@ -129,6 +148,24 @@ void ResolutionFix()
                 Memory::Write((uintptr_t)(ResScanResult + 0xC), (int)iCustomResY);
                 #if _DEBUG
                 std::cout << "1280x720 changed to: " << iCustomResX << "x" << iCustomResY << std::endl;
+                #endif
+            }
+        }
+
+        if (bResScale)
+        {
+            // Bravely_Default_II-Win64-Shipping.exe+1FEA46F 
+            uint8_t* ResScaleScanResult = Memory::PatternScan(baseModule, "F3 0F 10 ?? ?? 0F ?? ?? F3 0F 59 ?? ?? ?? ?? ?? 0F ?? ?? 77 ?? F3 0F 10");
+
+            if (ResScaleScanResult)
+            {
+                int ResScaleHookLength = 19;
+                DWORD64 ResScaleAddress = (uintptr_t)(ResScaleScanResult - 0x3);
+                ResScaleReturnJMP = ResScaleAddress + ResScaleHookLength;
+                Memory::DetourFunction64((void*)ResScaleAddress, ResScale_CC, ResScaleHookLength);
+
+                #if _DEBUG
+                std::cout << "r.ScreenPercentage forced to " << fResScale << std::endl;
                 #endif
             }
         }
@@ -235,7 +272,6 @@ DWORD __stdcall Main(void*)
     std::cout << "Console initiated" << std::endl;
     #endif
     ReadConfig();
-    Sleep(5000);
     ResolutionFix();
     AspectFix();
     FOVFix();
