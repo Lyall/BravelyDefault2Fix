@@ -13,27 +13,24 @@ HMODULE baseModule = GetModuleHandle(NULL);
 bool bResFix;
 bool bAspectFix;
 bool bHUDFix;
-bool bFullscreenBug;
 bool bFOVFix;
-float fFOVAdjust;
 int iCustomResX;
 int iCustomResY;
 bool bResScale;
 float fResScale;
 
 // Variables
-float fDesktopRight;
-float fDesktopBottom;
-float fDesktopAspect;
+float fNewX;
+float fNewY;
 float fNativeAspect = 1.777777791f;
 float fPi = 3.14159265358979323846f;
 float fDefaultHUDWidth = 1920;
-float fCustomAspect;
+float fDefaultHUDHeight = 1080;
+float fNewAspect;
 
 // FOV Hook
 DWORD64 FOVFixReturnJMP;
 float FOVPiDiv;
-float FOVNewAspect;
 float FOVDivPi;
 float FOVFinalValue;
 void __declspec(naked) FOVFix_CC()
@@ -45,13 +42,12 @@ void __declspec(naked) FOVFix_CC()
         fptan
         fxch st(1)
         fdiv [fNativeAspect]
-        fmul [FOVNewAspect]
+        fmul [fNewAspect]
         fxch st(1)
         fpatan
         fmul [FOVDivPi]
         fstp [FOVFinalValue]
         movss xmm0, [FOVFinalValue]
-        addss xmm0, [fFOVAdjust]
         movss [rdi + 0x18], xmm0
         mov eax, [rbx + 0x00000228]
         jmp[FOVFixReturnJMP]
@@ -65,6 +61,7 @@ void __declspec(naked) HUDWidth_CC()
     __asm
     {
         movss xmm9, [fDefaultHUDWidth]
+        movss xmm6, [fDefaultHUDHeight]
         movss [rsp + 0x30], xmm9
         movss [rsp + 0x34], xmm6
         mov byte ptr [rsp + 0x38], 01
@@ -74,12 +71,14 @@ void __declspec(naked) HUDWidth_CC()
 
 // HUD Offset Hook
 DWORD64 HUDOffsetReturnJMP;
-float HUDOffsetValue;
+float HUDHorOffsetValue;
+float HUDVerOffsetValue;
 void __declspec(naked) HUDOffset_CC()
 {
     __asm
     {
-        movss xmm7, [HUDOffsetValue]
+        movss xmm7, [HUDHorOffsetValue]
+        movss xmm8, [HUDVerOffsetValue]
         movss [rsp + 0x30], xmm7
         movss [rsp + 0x34], xmm8
         mov byte ptr [rsp + 0x38], 01
@@ -109,20 +108,36 @@ void ReadConfig()
     bResFix = config.GetBoolean("Fix Resolution", "Enabled", true);
     bAspectFix = config.GetBoolean("Fix Aspect Ratio", "Enabled", true);
     bHUDFix = config.GetBoolean("Fix HUD", "Enabled", true);
-    bFullscreenBug = config.GetBoolean("Fix Fullscreen Bug", "Enabled", true);
     bFOVFix = config.GetBoolean("Fix FOV", "Enabled", true);
-    fFOVAdjust = config.GetFloat("Fix FOV", "AdditionalFOV", 0);
     iCustomResX = config.GetInteger("Custom Resolution", "Width", -1);
     iCustomResY = config.GetInteger("Custom Resolution", "Height", -1);
     bResScale = config.GetBoolean("r.ScreenPercentage", "Enabled", true);
     fResScale = config.GetFloat("r.ScreenPercentage", "Value", 0);
 
+    // Grab desktop resolution
     RECT desktop;
     GetWindowRect(GetDesktopWindow(), &desktop);
-    fDesktopRight = (float)desktop.right;
-    fDesktopBottom = (float)desktop.bottom;
-    fDesktopAspect = (float)desktop.right / (float)desktop.bottom;
-    fCustomAspect = (float)iCustomResX / (float)iCustomResY;
+    fNewX = (float)desktop.right;
+    fNewY = (float)desktop.bottom;
+    fNewAspect = (float)desktop.right / (float)desktop.bottom;
+
+    // Custom resolution enabled
+    if (iCustomResX > 0 && iCustomResY > 0)
+    {
+        fNewX = (float)iCustomResX;
+        fNewY = (float)iCustomResY;
+        fNewAspect = (float)iCustomResX / (float)iCustomResY;
+    }
+
+    #if _DEBUG
+    if (config.ParseError() != 0) {
+        std::cout << "Can't load config file\n" << std::endl;
+        std::cout << "Parse error: " << config.ParseError() << std::endl;
+    }
+
+    std::cout << printf("Config parse\nbResFix: %d\nbAspectFix : %d\nbHUDFix : %d\nbFOVFix : %d\niCustomResX : %d\niCustomResY : %d\nbResScale:: %d\nfResScale: %.4f\nfNewX : %.4f\nfNewY: %.4f\nfNewAspect: %.4f\n",
+        bResFix, bAspectFix, bHUDFix, bFOVFix, iCustomResX, iCustomResY, bResScale, fResScale, fNewX, fNewY, fNewAspect) << std::endl;
+    #endif
 }
 
 void ResolutionFix()
@@ -134,22 +149,11 @@ void ResolutionFix()
 
         if (ResScanResult)
         {
-            if (iCustomResX == 0 && iCustomResY == 0)
-            {
-                Memory::Write((uintptr_t)(ResScanResult + 0x2), (int)fDesktopRight);
-                Memory::Write((uintptr_t)(ResScanResult + 0xC), (int)fDesktopBottom);
-                #if _DEBUG
-                std::cout << "1280x720 changed to: " << (int)fDesktopRight << "x" << (int)fDesktopBottom << std::endl;
-                #endif
-            }
-            else
-            {
-                Memory::Write((uintptr_t)(ResScanResult + 0x2), (int)iCustomResX);
-                Memory::Write((uintptr_t)(ResScanResult + 0xC), (int)iCustomResY);
-                #if _DEBUG
-                std::cout << "1280x720 changed to: " << iCustomResX << "x" << iCustomResY << std::endl;
-                #endif
-            }
+            Memory::Write((uintptr_t)(ResScanResult + 0x2), (int)fNewX);
+            Memory::Write((uintptr_t)(ResScanResult + 0xC), (int)fNewY);
+            #if _DEBUG
+            std::cout << "1280x720 changed to: " << fNewX << "x" << fNewY << std::endl;
+            #endif
         }
 
         if (bResScale)
@@ -169,7 +173,8 @@ void ResolutionFix()
                 #endif
             }
         }
-    }   
+    }
+ 
 }
 
 void AspectFix()
@@ -202,22 +207,17 @@ void FOVFix()
 
         // Address of signature = Bravely_Default_II - Win64 - Shipping.exe + 0x01BD9448
         uint8_t* FOVFixScanResult = Memory::PatternScan(baseModule, "F3 0F 10 ?? ?? ?? ?? ?? F3 0F 11 ?? ?? 8B ?? ?? ?? ?? ?? 89 ?? ?? 0F B6 ?? ?? ?? ?? ??");
-        if (FOVFixScanResult)
+        if (FOVFixScanResult && fNewAspect > fNativeAspect)
         {
             int FOVFixHookLength = 19;
             DWORD64 FOVFixAddress = (uintptr_t)FOVFixScanResult;
             FOVFixReturnJMP = FOVFixAddress + FOVFixHookLength;
             FOVPiDiv = fPi / 360;
-            FOVNewAspect = fDesktopAspect;
             FOVDivPi = 360 / fPi;
-            if (iCustomResX > 0 && iCustomResY > 0)
-            {
-                FOVNewAspect = fCustomAspect;
-            }
             Memory::DetourFunction64((void*)FOVFixAddress, FOVFix_CC, FOVFixHookLength);        
 
             #if _DEBUG
-            std::cout << "FOV adjusted to vert+, and added " << fFOVAdjust << std::endl;
+            std::cout << "FOV converted to hor+" << std::endl;
             #endif
         }
     }
@@ -242,23 +242,27 @@ void HUDFix()
         }
 
         // Address of signature = Bravely_Default_II - Win64 - Shipping.exe + 0x01E0BD6E
-        uint8_t* HUDOffsetScanResult = Memory::PatternScan(baseModule, "F3 0F ? ? ? ? F3 44 ? ? ? ? ? C6 44 24 38");
+        uint8_t* HUDOffsetScanResult = Memory::PatternScan(baseModule, "F3 0F 11 ?? ?? ?? F3 44 0F 11 ?? ?? ?? C6 ?? ?? ?? 01 F3 0F 11");
         if (HUDOffsetScanResult)
         {
             int HUDOffsetHookLength = 18;
             DWORD64 HUDOffsetAddress = (uintptr_t)HUDOffsetScanResult;
             HUDOffsetReturnJMP = HUDOffsetAddress + HUDOffsetHookLength;
-            float HUDWidth = fDesktopBottom * fNativeAspect;
-            HUDOffsetValue = ((1920 * (fDesktopAspect / fNativeAspect) - 1920) / 2);
-            if (iCustomResX > 0 && iCustomResY > 0)
+            if (fNewAspect > fNativeAspect)
             {
-                HUDWidth = iCustomResY * fNativeAspect;
-                HUDOffsetValue = ((1920 * (fCustomAspect / fNativeAspect) - 1920) / 2);
+                HUDHorOffsetValue = round(((fDefaultHUDWidth * (fNewAspect / fNativeAspect) - 1920) / 2));
+                HUDVerOffsetValue = 0;
+            }
+            else if (fNewAspect < fNativeAspect)
+            {
+                HUDHorOffsetValue = 0;
+                HUDVerOffsetValue = round(((fDefaultHUDHeight * (fNativeAspect / fNewAspect) - fDefaultHUDHeight) / 2));
             }
             Memory::DetourFunction64((void*)HUDOffsetAddress, HUDOffset_CC, HUDOffsetHookLength);
 
             #if _DEBUG
-            std::cout << "HUD offset set to " << HUDOffsetValue << std::endl;
+            std::cout << "HUD horizontal offset set to " << HUDHorOffsetValue << std::endl;
+            std::cout << "HUD vertical offset set to " << HUDVerOffsetValue << std::endl;
             #endif
         }     
     }
@@ -271,7 +275,7 @@ DWORD __stdcall Main(void*)
     freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
     std::cout << "Console initiated" << std::endl;
     #endif
-    Sleep(100);
+    Sleep(500);
     ReadConfig();
     ResolutionFix();
     AspectFix();
