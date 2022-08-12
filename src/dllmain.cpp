@@ -271,6 +271,7 @@ DWORD __stdcall Main(void*)
     freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
     std::cout << "Console initiated" << std::endl;
     #endif
+    Sleep(100);
     ReadConfig();
     ResolutionFix();
     AspectFix();
