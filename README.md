@@ -7,7 +7,7 @@ This is a DLL hook that adds ultrawide/custom resolution support to Bravely Defa
 ## Features
 - Support for ultrawide/custom resolutions.
 - Centered 16:9 HUD.
-- Hor+ FOV and FOV adjustment.
+- Hor+ FOV (Vert+ for <16:9) and FOV adjustment.
 
 ## Installation
 - Downloaded the [latest release](https://github.com/Lyall/BravelyDefault2Fix/releases) of BravelyDefault2Fix.
